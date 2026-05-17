@@ -3602,14 +3602,23 @@ class AIAgent:
         it causes the next replay to fail with HTTP 400.
 
         Also detects Kimi models served through third-party providers (e.g.
-        ollama-cloud) by matching ``kimi`` in the model name.
+        ollama-cloud) by matching ``kimi`` in the model name. Does NOT
+        match for proxy/aggregator providers (e.g. OpenRouter) that handle
+        format translation internally.
         """
+        model_lower = (self.model or "").lower()
+        # Skip model name matching for known proxy/aggregator providers
+        # that handle format conversion (OpenRouter, etc.)
+        if self.provider == "openrouter":
+            model_match = False
+        else:
+            model_match = "kimi" in model_lower
         return (
             self.provider in {"kimi-coding", "kimi-coding-cn"}
             or base_url_host_matches(self.base_url, "api.kimi.com")
             or base_url_host_matches(self.base_url, "moonshot.ai")
             or base_url_host_matches(self.base_url, "moonshot.cn")
-            or "kimi" in (self.model or "").lower()
+            or model_match
         )
 
     def _needs_deepseek_tool_reasoning(self) -> bool:
@@ -3618,12 +3627,18 @@ class AIAgent:
         DeepSeek V4 thinking mode requires ``reasoning_content`` on every
         assistant tool-call turn; omitting it causes HTTP 400 when the
         message is replayed in a subsequent API request (#15250).
+        Does NOT match for proxy/aggregator providers (e.g. OpenRouter).
         """
         provider = (self.provider or "").lower()
         model = (self.model or "").lower()
+        # Skip model name matching for known proxy/aggregator providers
+        if provider == "openrouter":
+            model_match = False
+        else:
+            model_match = "deepseek" in model
         return (
             provider == "deepseek"
-            or "deepseek" in model
+            or model_match
             or base_url_host_matches(self.base_url, "api.deepseek.com")
         )
 
@@ -3633,12 +3648,18 @@ class AIAgent:
         MiMo thinking mode requires ``reasoning_content`` on every assistant
         tool-call message when replaying history; omitting it causes HTTP 400.
         Refs: https://platform.xiaomimimo.com/docs/zh-CN/usage-guide/passing-back-reasoning_content
+        Does NOT match for proxy/aggregator providers (e.g. OpenRouter).
         """
         provider = (self.provider or "").lower()
         model = (self.model or "").lower()
+        # Skip model name matching for known proxy/aggregator providers
+        if provider == "openrouter":
+            model_match = False
+        else:
+            model_match = "mimo" in model
         return (
             provider == "xiaomi"
-            or "mimo" in model
+            or model_match
             or base_url_host_matches(self.base_url, "api.xiaomimimo.com")
             or base_url_host_matches(self.base_url, "xiaomimimo.com")
         )
